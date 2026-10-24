@@ -9,7 +9,7 @@
 - 4777을 다른 프로그램이 쓰고 있으면 포트를 바꾼다: `OFFICE_PORT=4778 node server.mjs`
 - 작업 폴더는 이 폴더 옆의 `../AI_team`이다. 다른 곳이면 `OFFICE_ROOT=/경로/AI_team node server.mjs`
 - `claude`를 못 찾으면 `CLAUDE_BIN=/경로/claude`로 알려 준다.
-- 맥 앱(`make-mac-app.sh`)은 옛 폴더 구조(`office-app/server.mjs`) 기준이라 지금 구조에서는 바로 쓸 수 없다. 고치기 전에는 위 명령으로 켠다.
+- 맥 앱: `bash make-mac-app.sh`로 `~/Applications/AI 사무실.app`을 만든다 (이미 있으면 새로 만든다). 더블클릭하면 서버를 켜고 브라우저로 연다. 포트를 바꾸려면 `OFFICE_PORT=4778 bash make-mac-app.sh`. 서버 기록은 `~/Library/Logs/AI-사무실/server.log`.
 
 ## 하는 일
 - `AI_team/runs/`의 가장 최근 실행을 읽어 단계·시안·기록을 보여준다 (3초마다, 실행 중엔 1.5초).
