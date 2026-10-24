@@ -210,7 +210,7 @@ iframe.mock { width: 100%; height: 300px; border: 1px solid var(--line); border-
     <header class="bar">
       <div class="brand">
         <canvas id="logo" width="12" height="16" aria-hidden="true"></canvas>
-        <div><strong>AI 팀 사무실</strong><span>10월 24일 토요일</span></div>
+        <div><strong>AI 팀 사무실</strong><span id="today">10월 24일 토요일</span></div>
       </div>
       <div class="counts" id="counts"></div>
     </header>
@@ -1761,6 +1761,9 @@ function loop(t) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+// 상단 날짜는 오늘 날짜로, 자정이 지나면 바뀌어요
+function paintToday() { document.getElementById('today').textContent = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }); }
+paintToday(); setInterval(paintToday, 60000);
 </script>
 
 </body></html>
