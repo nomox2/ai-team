@@ -10,9 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = process.env.OFFICE_ROOT || resolve(HERE, '..', 'AI_team'); // runs·harness·.claude가 있는 작업 폴더
 const RUNS = join(ROOT, 'runs');
-const PUBLIC = join(ROOT, 'office-app', 'public');
+const PUBLIC = join(HERE, 'public');
 const LOGS = join(ROOT, 'office-app', 'logs');
 const PORT = Number(process.env.OFFICE_PORT) || 4777;
 const CLAUDE = process.env.CLAUDE_BIN || 'claude';
