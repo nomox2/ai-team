@@ -10,6 +10,7 @@
 - 작업 폴더는 이 폴더 옆의 `../AI_team`이다. 다른 곳이면 `OFFICE_ROOT=/경로/AI_team node server.mjs`
 - `claude`를 못 찾으면 `CLAUDE_BIN=/경로/claude`로 알려 준다.
 - 맥 앱: `bash make-mac-app.sh`로 `~/Applications/AI 사무실.app`을 만든다 (이미 있으면 새로 만든다). 더블클릭하면 서버를 켜고 브라우저로 연다. 포트를 바꾸려면 `OFFICE_PORT=4778 bash make-mac-app.sh`. 서버 기록은 `~/Library/Logs/AI-사무실/server.log`.
+- 앱마다 하네스 폴더가 따로면 앱도 따로 만든다: `OFFICE_NAME="포트폴리오 사무실" OFFICE_ROOT=~/Desktop/포트폴리오 OFFICE_PORT=4779 bash make-mac-app.sh`. 앱마다 포트를 다르게 하면 여러 개를 동시에 열 수 있다. 새 앱용 하네스 폴더는 `ai-team-harness`의 `new-app.sh`로 만든다.
 
 ## 하는 일
 - `AI_team/runs/`의 가장 최근 실행을 읽어 단계·시안·기록을 보여준다 (3초마다, 실행 중엔 1.5초).
