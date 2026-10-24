@@ -2,18 +2,22 @@
 
 대표 맥에서만 도는 사무실 프로그램. Claude Code 터미널을 열지 않고 버튼으로 하네스를 돌린다.
 
-- 켜기: `~/Applications/AI 사무실.app` 더블클릭 (서버가 꺼져 있으면 켜고 브라우저로 연다)
-- 앱 다시 만들기: `bash office-app/make-mac-app.sh`
-- 직접 켜기: `node office-app/server.mjs` → http://127.0.0.1:4777
+이 저장소에는 사무실 앱(`server.mjs`, `public/`)만 있다. 하네스 본체(`runs/`, `harness/`, `docs/`, `.claude/`)는 작업 폴더 `AI_team`에 있고, 앱은 그 폴더를 읽고 거기서 하네스를 실행한다.
+
+- 켜기: `node server.mjs` → http://127.0.0.1:4777
 - 끄기: `lsof -ti :4777 | xargs kill`
+- 4777을 다른 프로그램이 쓰고 있으면 포트를 바꾼다: `OFFICE_PORT=4778 node server.mjs`
+- 작업 폴더는 이 폴더 옆의 `../AI_team`이다. 다른 곳이면 `OFFICE_ROOT=/경로/AI_team node server.mjs`
+- `claude`를 못 찾으면 `CLAUDE_BIN=/경로/claude`로 알려 준다.
+- 맥 앱(`make-mac-app.sh`)은 옛 폴더 구조(`office-app/server.mjs`) 기준이라 지금 구조에서는 바로 쓸 수 없다. 고치기 전에는 위 명령으로 켠다.
 
 ## 하는 일
-- `runs/`의 가장 최근 실행을 읽어 단계·시안·기록을 보여준다 (3초마다, 실행 중엔 1.5초).
+- `AI_team/runs/`의 가장 최근 실행을 읽어 단계·시안·기록을 보여준다 (3초마다, 실행 중엔 1.5초).
 - 요청 버튼(이어서 진행 · 새 실행 · 직원 질문) → 뒤에서 `claude -p`를 실행한다. 구독 사용량으로 처리된다.
   - 훅·verify.mjs·에이전트 설정은 Claude Code가 그대로 적용한다. 허용 도구는 `server.mjs`의 `HARNESS_TOOLS`.
-  - Apify는 "새 실행"에서 대표가 켤 때만 허용한다.
+- "새 실행"의 화면 버튼은 `AI_team/docs/prd.md`의 "4. 만들 화면"을 따라간다. 화면 이름·설명은 PRD에서, 파일 이름(home, record 등)은 `AI_team/harness/rules.yaml`의 `screens`에서 읽는다. PRD에는 있어도 `rules.yaml`에 파일 이름이 없는 화면은 버튼이 비활성이다.
 - 승인·반려 버튼 → Claude를 거치지 않고 `harness/scripts/approve.mjs`를 바로 실행한다 (승인 단계일 때만).
-- 실행 기록: `office-app/logs/<id>.jsonl` (git에 안 올라감)
+- 실행 기록: `AI_team/office-app/logs/<id>.jsonl` (git에 안 올라감)
 
 ## 안전
 - 127.0.0.1에서만 열리고, Host 헤더가 localhost가 아니면 거절한다.
