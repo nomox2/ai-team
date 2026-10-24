@@ -1447,11 +1447,20 @@ function watchHarness() {
 
 /* ---------- 하네스 요청: 대표가 남기면 Claude Code가 몇 분마다 확인해서 처리해요 ---------- */
 // 페이지는 요청을 남기기만 해요. 실행·판정·승인은 Claude Code가 하고, 결과를 status·reply에 적어요.
-const HZ_SCREENS = ['홈', '기록하기', '내역', '통계', '예산·설정', '아직 미정'];
+let HZ_SCREENS = ['홈', '기록하기', '내역', '통계', '예산·설정', '아직 미정'];
 // docs/prd.md 시나리오 기준 한 줄 설명
-const HZ_SCREEN_INFO = { '홈': '이번 달 남은 예산, 오늘·이번 주 지출, 최근 내역을 한눈에 보는 첫 화면', '기록하기': '금액을 넣고 카테고리를 한 번 탭해 3초 안에 기록하는 곳 (즐겨찾기, 수입/지출 전환)',
+let HZ_SCREEN_INFO = { '홈': '이번 달 남은 예산, 오늘·이번 주 지출, 최근 내역을 한눈에 보는 첫 화면', '기록하기': '금액을 넣고 카테고리를 한 번 탭해 3초 안에 기록하는 곳 (즐겨찾기, 수입/지출 전환)',
   '내역': '날짜별 기록 목록을 보고 수정·삭제하는 곳', '통계': '카테고리별 지출 비율과 가장 많이 쓴 곳', '예산·설정': '이번 달 예산, 카테고리·즐겨찾기를 관리하는 곳',
   '아직 미정': '화면을 정하기 전, 모아가 다른 가계부·금융 앱의 실제 화면을 넓게 리서치만 해요 (P1에서 끝)' };
+let HZ_SCREEN_OFF = new Set();   // PRD에는 있지만 harness/rules.yaml에 파일 이름이 아직 없는 화면
+// 로컬 앱에서는 화면 버튼이 PRD "4. 만들 화면"을 따라가요 (서버가 docs/prd.md와 harness/rules.yaml을 읽어 보내 줘요)
+function applyScreens(list) {
+  if (!Array.isArray(list) || !list.length) return;
+  HZ_SCREENS = list.map(x => x.name);
+  HZ_SCREEN_INFO = Object.fromEntries(list.map(x => [x.name, x.info || '']));
+  HZ_SCREEN_OFF = new Set(list.filter(x => !x.key).map(x => x.name));
+  if (!HZ_SCREENS.includes(hzForm.screen) || HZ_SCREEN_OFF.has(hzForm.screen)) hzForm.screen = HZ_SCREENS.find(n => !HZ_SCREEN_OFF.has(n)) || HZ_SCREENS[0];
+}
 const HZ_KINDS = [['continue', '이어서 진행'], ['start', '새 실행'], ['ask', '직원 질문']];
 const REQCHIP = { new: ['demo', '접수'], taking: ['focus', '처리 중'], done: ['idle', '완료'], refused: ['meeting', '못 함'] };
 let hzReqs = [], hzOwner = false, hzForm = { kind: 'continue', screen: '홈', refs: false, to: 'moa' }, hzSending = false;
@@ -1502,6 +1511,7 @@ function mdPage(md, slug) {
 async function pollLocal() {
   try {
     const st = await (await fetch('/api/state', { cache: 'no-store' })).json();
+    applyScreens(st.screens);
     for (const f of st.files) {
       const c = hzHtml.get(f.path);
       if (!c || c.mtime !== f.mtime) {
@@ -1629,8 +1639,8 @@ function paintHarness(box) {
     ${db || LOCAL ? `<section>
       <p class="label"><span>요청 ${LOCAL ? '보내기' : '남기기'}</span><span>${LOCAL ? '누르면 바로 시작' : 'Claude Code가 몇 분마다 확인'}</span></p>
       ${hzOwner ? `<div class="tabs" role="tablist" aria-label="요청 종류">${kinds.map(([k, n]) => `<button role="tab" data-hk="${k}" aria-selected="${hzForm.kind === k}">${n}</button>`).join('')}</div>
-      ${hzForm.kind === 'start' ? `<div class="tabs wrap" role="tablist" aria-label="만들 화면">${HZ_SCREENS.map(s => `<button role="tab" data-hs="${esc(s)}" aria-selected="${hzForm.screen === s}">${esc(s)}</button>`).join('')}</div>
-        <p class="note"><b>${esc(hzForm.screen)}</b> · ${esc(HZ_SCREEN_INFO[hzForm.screen])}</p>
+      ${hzForm.kind === 'start' ? `<div class="tabs wrap" role="tablist" aria-label="만들 화면">${HZ_SCREENS.map(s => `<button role="tab" data-hs="${esc(s)}" aria-selected="${hzForm.screen === s}"${HZ_SCREEN_OFF.has(s) ? ' disabled title="harness/rules.yaml screens에 파일 이름이 없어서 아직 실행할 수 없어요"' : ''}>${esc(s)}</button>`).join('')}</div>
+        <p class="note"><b>${esc(hzForm.screen)}</b> · ${esc(HZ_SCREEN_INFO[hzForm.screen] || '')}</p>
         <div class="tabs" role="tablist" aria-label="레퍼런스">${[[false, '레퍼런스 없이'], [true, '레퍼런스 넣을게요']].map(([v, n]) => `<button role="tab" data-hr="${v}" aria-selected="${hzForm.refs === v}">${n}</button>`).join('')}</div>
         ${LOCAL && hzForm.refs ? `<p class="note">먼저 폴더를 열어 레퍼런스를 넣고, 다 넣은 뒤 요청을 보내 주세요. 그러면 멈추지 않고 바로 리서치를 시작해요.</p>
           <div class="acts"><button class="btn" data-hz="refs-new">레퍼런스 폴더 열기</button></div>` : ''}

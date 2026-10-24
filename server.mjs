@@ -22,9 +22,51 @@ const PATH = [dirname(process.execPath), '/opt/homebrew/bin', '/usr/local/bin', 
 // 다른 웹사이트가 이 서버에 요청을 보내지 못하게, 페이지에 심은 토큰이 있어야 버튼 요청을 받아요
 const TOKEN = randomBytes(16).toString('hex');
 const SLUG = /^[\w-]+$/;
-const SCREENS = ['홈', '기록하기', '내역', '통계', '예산·설정', '아직 미정'];
-// harness/rules.yaml screens와 같은 이름 (slug = 날짜-파일이름)
-const SCREEN_KEYS = { '홈': 'home', '기록하기': 'record', '내역': 'history', '통계': 'stats', '예산·설정': 'budget', '아직 미정': 'explore' };
+// 화면 버튼은 PRD "4. 만들 화면"을 따라가요 (이름·설명은 docs/prd.md, 파일 이름은 harness/rules.yaml screens)
+// 요청마다 파일을 다시 읽어서, PRD를 고치면 서버를 다시 켜지 않아도 바뀌어요
+const EXPLORE_INFO = '화면을 정하기 전, 모아가 다른 앱의 실제 화면을 넓게 리서치만 해요 (P1에서 끝)';
+function rulesScreens() {
+  const keys = {}, ex = {};
+  let sec = '';
+  for (const l of readText(join(ROOT, 'harness', 'rules.yaml')).split('\n')) {
+    if (/^#/.test(l)) continue;
+    if (/^\S/.test(l)) { sec = (l.match(/^(\w+):/) || [])[1] || ''; continue; }
+    const m = l.match(/^\s+([^#\s][^:]*?):\s*([^#\s][^#]*?)\s*(#.*)?$/);
+    if (!m) continue;
+    if (sec === 'screens') keys[m[1]] = m[2];
+    if (sec === 'explore' && (m[1] === 'screen' || m[1] === 'slug')) ex[m[1]] = m[2];
+  }
+  return { keys, explore: ex.screen && ex.slug ? ex : null };
+}
+function prdScreens() {
+  const out = [];
+  let on = false;
+  for (const l of readText(join(ROOT, 'docs', 'prd.md')).split('\n')) {
+    if (/^(#{1,3}\s*)?4\.\s*만들\s*화면/.test(l)) { on = true; continue; }   // 시나리오의 "4. …" 번호 목록과 헷갈리지 않게 제목 이름까지 봐요
+    if (!on) continue;
+    if (/^#{1,3}\s/.test(l) || /^\d+\.\s/.test(l)) break;
+    const t = l.trim();
+    if (!t) continue;
+    if (/^[-*]\s/.test(t)) {   // "- 홈 — 이번 달 남은 예산 …"
+      const [name, ...rest] = t.replace(/^[-*]\s+/, '').split(/\s+[—–-]\s+/);
+      out.push([name.trim(), rest.join(' — ').trim()]);
+    } else if (t.includes('/')) t.split('/').forEach(n => n.trim() && out.push([n.trim(), '']));   // "홈 / 기록하기 / 내역"
+  }
+  return out;
+}
+function readText(f) { try { return readFileSync(f, 'utf8'); } catch { return ''; } }
+function loadScreens() {
+  const { keys, explore } = rulesScreens();
+  const list = prdScreens().map(([name, info]) => ({ name, info, key: keys[name] || null }));
+  if (explore) list.push({ name: explore.screen, info: EXPLORE_INFO, key: explore.slug });
+  return list;
+}
+function screenKey(name) {
+  const f = loadScreens().find(x => x.name === name);
+  if (!f) throw new Error('화면을 골라 주세요.');
+  if (!f.key) throw new Error(`"${name}"은 harness/rules.yaml screens에 파일 이름이 없어서 아직 실행할 수 없어요.`);
+  return f.key;
+}
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const manualDir = slug => join(RUNS, slug, 'p1-research', 'references', 'manual');
 const manualCount = slug => { try { return readdirSync(manualDir(slug)).filter(n => !n.startsWith('.')).length; } catch { return 0; } };
@@ -92,8 +134,7 @@ const HARNESS_TOOLS = ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Agent', 'Skill'
 function buildJob(b) {
   const memo = b.text ? `\n\n대표 메모: ${b.text}` : '';
   if (b.kind === 'start') {
-    if (!SCREENS.includes(b.screen)) throw new Error('화면을 골라 주세요.');
-    const n = manualCount(`${today()}-${SCREEN_KEYS[b.screen]}`);
+    const n = manualCount(`${today()}-${screenKey(b.screen)}`);
     const refs = !b.refs ? '안 넣는다' : n ? `넣었다 — manual 폴더에 이미 ${n}개 있으니 멈추지 말고 바로 P1을 진행한다` : '넣는다 — 폴더를 만들고 경로를 알려준 뒤 멈춘다';
     return {
       prompt: `/run-harness ${b.screen}\n첫 실행 질문의 답: 1) 화면: ${b.screen} 2) references/manual 레퍼런스: ${refs}${memo}${COMMON}`,
@@ -237,7 +278,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/token') return send(res, 200, { token: TOKEN });
     if (req.method === 'GET' && url.pathname === '/api/state') {
       const hz = harnessDoc();
-      return send(res, 200, { hz, files: hz ? htmlFiles(hz.slug) : [], jobs: jobs.map(pub), log: job?.log.slice(-40) || [], running: job?.status === 'taking' });
+      return send(res, 200, { hz, screens: loadScreens(), files: hz ? htmlFiles(hz.slug) : [], jobs: jobs.map(pub), log: job?.log.slice(-40) || [], running: job?.status === 'taking' });
     }
     // 시안 HTML (runs/<slug>/p3-concept, p4-design/screens 안의 .html만)
     const fm = url.pathname.match(/^\/files\/([\w-]+)\/(p3-concept\/key-[^/]+\.html|p4-design\/screens\/[^/]+\.html|p1-research\/analysis\.md)$/);
@@ -277,8 +318,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/approve') return send(res, 200, { message: await approve(b.slug, b.reject ?? null) });
     if (url.pathname === '/api/open-refs') {
       // 실행 전이면 고른 화면으로 오늘 slug를 만들어 폴더부터 열어요 (run-harness도 같은 경로를 써요)
-      const slug = b.screen ? `${today()}-${SCREEN_KEYS[b.screen] || ''}` : b.slug;
-      if (!SLUG.test(slug || '') || (b.screen && !SCREEN_KEYS[b.screen])) throw new Error('실행을 찾지 못했어요.');
+      const slug = b.screen ? `${today()}-${screenKey(b.screen)}` : b.slug;
+      if (!SLUG.test(slug || '')) throw new Error('실행을 찾지 못했어요.');
       const d = manualDir(slug);
       mkdirSync(d, { recursive: true });
       execFile('open', [d]);
