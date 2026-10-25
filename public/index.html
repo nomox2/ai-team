@@ -295,7 +295,7 @@ const meetSeats = [
 const people = [
   { id: 'me', name: '나', you: true, x: 26, y: 13, face: 'down', status: 'online',
     look: { hair: '#2b2522', skin: '#f1c7a1', shirt: '#3443d0', pants: '#2f3445', style: 'short' } },
-  { id: 'moa', name: '모아', role: '리서처', example: '예: 토스 같은 가계부 앱의 내역 화면 리서치해줘', x: 3, y: 5, face: 'up', status: 'idle', place: '기획·리서치팀',
+  { id: 'moa', name: '모아', role: '리서처', example: '예: 비슷한 서비스들의 홈 화면 리서치해줘', x: 3, y: 5, face: 'up', status: 'idle', place: '기획·리서치팀',
     home: { x: 3, y: 5, f: 'up', zone: '기획·리서치팀', status: 'idle' },
     look: { hair: '#1f1a24', skin: '#f3d2b3', shirt: '#4f9a7a', pants: '#3a3f55', style: 'long', glasses: true },
     task: { title: '맡은 일이 없어요', progress: null, steps: [] },
@@ -616,7 +616,7 @@ function paintTeam() {
   pli.appendChild(pb); ul.appendChild(pli);
   const hli = document.createElement('li'), hb = document.createElement('button');
   hb.setAttribute('aria-pressed', selected === 'harness');
-  hb.innerHTML = `<span class="roomicon hzicon">H</span><span class="who"><b>하네스</b><span>${hz ? esc(hz.screens.join('·')) : 'Claude Code 연동'}</span></span>`
+  hb.innerHTML = `<span class="roomicon hzicon">H</span><span class="who"><b>하네스</b><span>${hz ? esc(hzScreens()) : 'Claude Code 연동'}</span></span>`
     + (hz ? `<span class="chip ${HZCHIP[hz.status]?.[0] || 'demo'}">${HZCHIP[hz.status]?.[1] || hz.status}</span>` : '<span class="chip demo">대기</span>');
   hb.onclick = () => select('harness');
   hli.appendChild(hb); ul.appendChild(hli);
@@ -1447,23 +1447,12 @@ function watchHarness() {
 
 /* ---------- 하네스 요청: 대표가 남기면 Claude Code가 몇 분마다 확인해서 처리해요 ---------- */
 // 페이지는 요청을 남기기만 해요. 실행·판정·승인은 Claude Code가 하고, 결과를 status·reply에 적어요.
-let HZ_SCREENS = ['홈', '기록하기', '내역', '통계', '예산·설정', '아직 미정'];
-// docs/prd.md 시나리오 기준 한 줄 설명
-let HZ_SCREEN_INFO = { '홈': '이번 달 남은 예산, 오늘·이번 주 지출, 최근 내역을 한눈에 보는 첫 화면', '기록하기': '금액을 넣고 카테고리를 한 번 탭해 3초 안에 기록하는 곳 (즐겨찾기, 수입/지출 전환)',
-  '내역': '날짜별 기록 목록을 보고 수정·삭제하는 곳', '통계': '카테고리별 지출 비율과 가장 많이 쓴 곳', '예산·설정': '이번 달 예산, 카테고리·즐겨찾기를 관리하는 곳',
-  '아직 미정': '화면을 정하기 전, 모아가 다른 가계부·금융 앱의 실제 화면을 넓게 리서치만 해요 (P1에서 끝)' };
-let HZ_SCREEN_OFF = new Set();   // PRD에는 있지만 harness/rules.yaml에 파일 이름이 아직 없는 화면
-// 로컬 앱에서는 화면 버튼이 PRD "4. 만들 화면"을 따라가요 (서버가 docs/prd.md와 harness/rules.yaml을 읽어 보내 줘요)
-function applyScreens(list) {
-  if (!Array.isArray(list) || !list.length) return;
-  HZ_SCREENS = list.map(x => x.name);
-  HZ_SCREEN_INFO = Object.fromEntries(list.map(x => [x.name, x.info || '']));
-  HZ_SCREEN_OFF = new Set(list.filter(x => !x.key).map(x => x.name));
-  if (!HZ_SCREENS.includes(hzForm.screen) || HZ_SCREEN_OFF.has(hzForm.screen)) hzForm.screen = HZ_SCREENS.find(n => !HZ_SCREEN_OFF.has(n)) || HZ_SCREENS[0];
-}
+// 만들 화면은 대표가 고르지 않고 하네스가 정해요 (P2에서 하루가 screens.md에 적으면 state.json screens에 들어와요)
+const HZ_EXPLORE = '아직 미정';   // 예전 "화면 미정" 실행(P1 리서치만)을 보여줄 때만 써요
+const hzScreens = (sep = '·') => hz.screens?.length ? hz.screens.join(sep) : '화면 정하는 중';
 const HZ_KINDS = [['continue', '이어서 진행'], ['start', '새 실행'], ['ask', '직원 질문']];
 const REQCHIP = { new: ['demo', '접수'], taking: ['focus', '처리 중'], done: ['idle', '완료'], refused: ['meeting', '못 함'] };
-let hzReqs = [], hzOwner = false, hzForm = { kind: 'continue', screen: '홈', refs: false, to: 'moa' }, hzSending = false;
+let hzReqs = [], hzOwner = false, hzForm = { kind: 'continue', refs: false, to: 'moa' }, hzSending = false;
 // 로컬 앱(대표 맥의 office-app/server.mjs)에서 열렸을 때: runs/를 서버에서 바로 읽고, 버튼이 Claude Code를 실행해요
 const LOCAL = location.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(location.hostname);
 let OFFICE_TOKEN = '__OFFICE_TOKEN__';
@@ -1511,7 +1500,6 @@ function mdPage(md, slug) {
 async function pollLocal() {
   try {
     const st = await (await fetch('/api/state', { cache: 'no-store' })).json();
-    applyScreens(st.screens);
     for (const f of st.files) {
       const c = hzHtml.get(f.path);
       if (!c || c.mtime !== f.mtime) {
@@ -1545,7 +1533,7 @@ async function sendHarnessRequest(box) {
   if (hzForm.kind === 'ask' && !text) return toast('질문 내용을 적어 주세요.');
   const id = 'r' + Date.now().toString(36);
   const body = { kind: hzForm.kind, text: clip(text, 500), status: 'new', reply: '', createdAt: Date.now() };
-  if (hzForm.kind === 'start') Object.assign(body, { screen: hzForm.screen, refs: hzForm.refs });
+  if (hzForm.kind === 'start') Object.assign(body, { refs: hzForm.refs });
   if (hzForm.kind === 'ask') body.to = hzForm.to;
   if (LOCAL) { return localAct('/api/jobs', body, '요청을 보냈어요. Claude Code가 바로 시작해요.'); }
   hzSending = true; paintHarness(box);
@@ -1554,7 +1542,7 @@ async function sendHarnessRequest(box) {
   hzSending = false; paintHarness(box);
 }
 function reqLabel(r) {
-  if (r.kind === 'start') return `새 실행 · ${r.screen}${r.refs ? ' · 레퍼런스 넣음' : ''}`;
+  if (r.kind === 'start') return `새 실행${r.refs ? ' · 레퍼런스 넣음' : ''}`;
   if (r.kind === 'ask') return `${byId(r.to)?.name || r.to}에게 질문`;
   return '이어서 진행';
 }
@@ -1583,11 +1571,11 @@ function syncHarnessStaff(prev) {
 }
 // 하네스를 맡은 직원의 "지금 하는 일" 칸: 하네스 단계 목록을 그대로 보여줘요
 function hzTask() {
-  const stages = HZ_STAGES.filter(([key]) => !hz.screens.includes('아직 미정') || key === 'p1');
+  const stages = HZ_STAGES.filter(([key]) => !hz.screens.includes(HZ_EXPLORE) || key === 'p1');
   const done = stages.map(([key]) => hz.phase === 'done' || hz.gates?.[key]?.result === 'pass' || HZ_STAGES.findIndex(s => s[0] === key) < HZ_STAGES.findIndex(s => s[0] === hz.phase));
   const cur = stages.find(s => s[0] === hz.phase);
   return {
-    title: `하네스 · ${hz.screens.join('·')} · ${cur ? cur[2] : '완료'}`,
+    title: `하네스 · ${hzScreens()} · ${cur ? cur[2] : '완료'}`,
     progress: Math.round(done.filter(Boolean).length / stages.length * 100),
     steps: stages.map(([, who, name], i) => [`${who === 'me' ? '대표' : byId(who).name} · ${name}`, done[i] ? 1 : 0]),
   };
@@ -1615,12 +1603,12 @@ function paintHarness(box) {
     <section>
       <div class="head"><div class="pic roompic hzpic"><svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 5h16v4H4zM4 11h10v4H4zM4 17h13v3H4z" fill="currentColor" opacity=".85"/></svg></div>
         <div><h2>하네스<span>리서치 → 판정</span></h2><div class="meta">${hz ? `<span class="chip ${(HZCHIP[hz.status] || ['demo'])[0]}">${(HZCHIP[hz.status] || ['', hz.status])[1]}</span><span>${esc(hz.slug)}</span>` : '<span class="chip demo">실행 전</span>'}</div></div></div>
-      ${hz ? `<p class="note">${esc(hz.message || '')}</p>` : `<p class="note">${LOCAL ? '아래 <b>새 실행</b>에서 만들 화면을 골라 요청을 보내면 시작해요.' : 'Claude Code에서 <b>/run-harness 트렌드</b>처럼 실행하면 여기에 진행 상황이 보여요. 일과 판정은 Claude Code에서 하고, 이 화면은 보여주기만 해요.'}</p>`}
+      ${hz ? `<p class="note">${esc(hz.message || '')}</p>` : `<p class="note">${LOCAL ? '아래 <b>새 실행</b>으로 요청을 보내면 리서치부터 시작해요.' : 'Claude Code에서 <b>/run-harness</b>를 실행하면 여기에 진행 상황이 보여요. 일과 판정은 Claude Code에서 하고, 이 화면은 보여주기만 해요.'}</p>`}
       ${db || LOCAL ? '' : '<p class="empty">저장소에 연결되지 않아서 하네스 진행을 불러올 수 없어요.</p>'}
     </section>
     ${hz ? `<section>
-      <p class="label"><span>단계</span><span>${esc(hz.screens.join(' · '))}</span></p>
-      <ol class="stages">${HZ_STAGES.filter(([key]) => !hz.screens.includes('아직 미정') || key === 'p1').map(([key, who, name], i) => { const c = stageChip(key), f = hz.failures?.[key];
+      <p class="label"><span>단계</span><span>${esc(hzScreens(' · '))}</span></p>
+      <ol class="stages">${HZ_STAGES.filter(([key]) => !hz.screens.includes(HZ_EXPLORE) || key === 'p1').map(([key, who, name], i) => { const c = stageChip(key), f = hz.failures?.[key];
         return `<li${hz.phase === key ? ' class="cur"' : ''}><span class="num">${i + 1}</span>
         <span><b>${who === 'me' ? '대표' : byId(who).name} · ${name}</b>${f ? `<time>실패 ${f}회</time>` : ''}</span>
         <span class="chip ${c[0]}">${c[1]}</span></li>`; }).join('')}</ol>
@@ -1639,15 +1627,14 @@ function paintHarness(box) {
     ${db || LOCAL ? `<section>
       <p class="label"><span>요청 ${LOCAL ? '보내기' : '남기기'}</span><span>${LOCAL ? '누르면 바로 시작' : 'Claude Code가 몇 분마다 확인'}</span></p>
       ${hzOwner ? `<div class="tabs" role="tablist" aria-label="요청 종류">${kinds.map(([k, n]) => `<button role="tab" data-hk="${k}" aria-selected="${hzForm.kind === k}">${n}</button>`).join('')}</div>
-      ${hzForm.kind === 'start' ? `<div class="tabs wrap" role="tablist" aria-label="만들 화면">${HZ_SCREENS.map(s => `<button role="tab" data-hs="${esc(s)}" aria-selected="${hzForm.screen === s}"${HZ_SCREEN_OFF.has(s) ? ' disabled title="harness/rules.yaml screens에 파일 이름이 없어서 아직 실행할 수 없어요"' : ''}>${esc(s)}</button>`).join('')}</div>
-        <p class="note"><b>${esc(hzForm.screen)}</b> · ${esc(HZ_SCREEN_INFO[hzForm.screen] || '')}</p>
+      ${hzForm.kind === 'start' ? `<p class="note">만들 화면은 고르지 않아요. 모아가 PRD를 기준으로 리서치하고, 하루가 그 결과를 보고 화면을 정해요. 범위를 주고 싶으면 덧붙일 말에 적어 주세요.</p>
         <div class="tabs" role="tablist" aria-label="레퍼런스">${[[false, '레퍼런스 없이'], [true, '레퍼런스 넣을게요']].map(([v, n]) => `<button role="tab" data-hr="${v}" aria-selected="${hzForm.refs === v}">${n}</button>`).join('')}</div>
         ${LOCAL && hzForm.refs ? `<p class="note">먼저 폴더를 열어 레퍼런스를 넣고, 다 넣은 뒤 요청을 보내 주세요. 그러면 멈추지 않고 바로 리서치를 시작해요.</p>
           <div class="acts"><button class="btn" data-hz="refs-new">레퍼런스 폴더 열기</button></div>` : ''}
         ` : ''}
       ${hzForm.kind === 'ask' ? `<div class="tabs" role="tablist" aria-label="받는 직원">${['moa', 'haru', 'sora', 'koda', 'tes'].map(id => `<button role="tab" data-ht="${id}" aria-selected="${hzForm.to === id}">${esc(byId(id)?.name || id)}</button>`).join('')}</div>` : ''}
       ${hzForm.kind === 'continue' ? `<p class="note">지금 실행을 다음 단계로 이어가요. ${LOCAL ? '승인 대기 중이면 위의 승인·반려 버튼을 먼저 눌러 주세요.' : '승인 대기 중이면 승인은 Claude Code에서 직접 해야 해요.'}</p>` : ''}
-      <textarea id="hzText" rows="2" placeholder="${hzForm.kind === 'ask' ? '물어볼 내용. 예: 홈 화면 설계에서 남은 예산을 왜 맨 위에 뒀어?' : '덧붙일 말(선택)'}" aria-label="요청 내용"></textarea>
+      <textarea id="hzText" rows="2" placeholder="${hzForm.kind === 'ask' ? '물어볼 내용. 예: 화면을 왜 이렇게 나눴어?' : hzForm.kind === 'start' ? '덧붙일 말(선택). 예: 홈이랑 내역만 먼저' : '덧붙일 말(선택)'}" aria-label="요청 내용"></textarea>
       <div class="acts"><button class="btn primary" data-hz="send"${hzSending || hzRunning ? ' disabled' : ''}>${hzSending ? '보내는 중' : '요청 보내기'}</button></div>`
       : '<p class="note">요청은 대표만 남길 수 있어요.</p>'}
       ${hzReqs.length ? `<ul class="files">${hzReqs.map(r => { const c = REQCHIP[r.status] || ['demo', r.status];
@@ -1674,12 +1661,11 @@ function paintHarness(box) {
     localAct('/api/approve', { slug: hz.slug, reject: why });
   });
   box.querySelector('[data-hz=stop]')?.addEventListener('click', () => localAct('/api/stop', {}, '멈췄어요.'));
-  box.querySelector('[data-hz=refs-new]')?.addEventListener('click', () => localAct('/api/open-refs', { screen: hzForm.screen }, `Finder에서 ${hzForm.screen} 레퍼런스 폴더를 열었어요. 다 넣은 뒤 요청을 보내 주세요.`));
+  box.querySelector('[data-hz=refs-new]')?.addEventListener('click', () => localAct('/api/open-refs', { next: true }, 'Finder에서 새 실행의 레퍼런스 폴더를 열었어요. 다 넣은 뒤 요청을 보내 주세요.'));
   box.querySelector('[data-hz=refs]')?.addEventListener('click', () => localAct('/api/open-refs', { slug: hz.slug }, 'Finder에서 레퍼런스 폴더를 열었어요. 넣은 뒤 이어서 진행을 보내 주세요.'));
   box.querySelectorAll('[data-hf]').forEach(b => b.onclick = () => { hzView = b.dataset.hf; paintHarness(box); });
   const keepText = fn => () => { const t = box.querySelector('#hzText')?.value || ''; fn(); paintHarness(box); const el = box.querySelector('#hzText'); if (el) el.value = t; };
   box.querySelectorAll('[data-hk]').forEach(b => b.onclick = keepText(() => { hzForm.kind = b.dataset.hk; }));
-  box.querySelectorAll('[data-hs]').forEach(b => b.onclick = keepText(() => { hzForm.screen = b.dataset.hs; }));
   box.querySelectorAll('[data-hr]').forEach(b => b.onclick = keepText(() => { hzForm.refs = b.dataset.hr === 'true'; }));
   box.querySelectorAll('[data-ht]').forEach(b => b.onclick = keepText(() => { hzForm.to = b.dataset.ht; }));
   box.querySelector('[data-hz=send]')?.addEventListener('click', () => sendHarnessRequest(box));

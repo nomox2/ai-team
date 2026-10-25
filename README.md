@@ -16,7 +16,7 @@
 - `AI_team/runs/`의 가장 최근 실행을 읽어 단계·시안·기록을 보여준다 (3초마다, 실행 중엔 1.5초).
 - 요청 버튼(이어서 진행 · 새 실행 · 직원 질문) → 뒤에서 `claude -p`를 실행한다. 구독 사용량으로 처리된다.
   - 훅·verify.mjs·에이전트 설정은 Claude Code가 그대로 적용한다. 허용 도구는 `server.mjs`의 `HARNESS_TOOLS`.
-- "새 실행"의 화면 버튼은 `AI_team/docs/prd.md`의 "4. 만들 화면"을 따라간다. 화면 이름·설명은 PRD에서, 파일 이름(home, record 등)은 `AI_team/harness/rules.yaml`의 `screens`에서 읽는다. PRD에는 있어도 `rules.yaml`에 파일 이름이 없는 화면은 버튼이 비활성이다.
+- "새 실행"은 화면을 고르지 않는다. 모아가 PRD 기준으로 리서치하고, 하루가 P2에서 만들 화면을 정한다 (범위는 덧붙일 말로 줄 수 있다). 실행 이름은 `날짜-run`(같은 날 두 번째부터 `-run-2`).
 - 승인·반려 버튼 → Claude를 거치지 않고 `harness/scripts/approve.mjs`를 바로 실행한다 (승인 단계일 때만).
 - 실행 기록: `AI_team/office-app/logs/<id>.jsonl` (git에 안 올라감)
 
